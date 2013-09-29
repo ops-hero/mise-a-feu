@@ -1,0 +1,15 @@
+language: python
+python:
+  - "2.7"
+install:
+  - "pip install -r requirements.pip"
+  - "pip install -r requirements-test.pip"
+script:
+  - "python mise_a_feu/scripts/update_stack.py --test tests/data/manifest.cfg localhost"
+  - "nosetests tests/*.py"
+  - "python setup.py sdist"
+  - "easy_install dist/*.gz"
+  - "mise-a-feu -l -c examples/example_config.yml"
+
+notifications:
+  email: false

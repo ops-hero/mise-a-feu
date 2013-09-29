@@ -1,0 +1,16 @@
+pidfile:    'default.pid'
+buildhost:  'localhost'
+key:        ''
+hosts:
+    -   'localhost'
+post_deployment:
+    -   command:          'whoami'
+        run_once_on:      'localhost'
+    -   command:          'uname -a'
+notifications:
+    start:
+        -   command:    'echo "%(message)s" | mail -s "SUBJECT" foo@bar.com'
+            message:    'DE-Staging is deploying now. Stack version: %(stack)s'
+    end:
+        -   command:    'curl -sS -d "auth_token=AUTH_TOKEN&room_id=ROOM_ID&from=Deployment&color=yellow&message=%(message)s&notify=1" https://api.hipchat.com/v1/rooms/message'
+            message:    'MESSAGE. Stack version: %(stack)s'

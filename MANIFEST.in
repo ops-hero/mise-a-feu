@@ -1,0 +1,2 @@
+include mise_a_feu/scripts/*.py
+include README.md requirements.pip
