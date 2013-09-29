@@ -1,2 +1,2 @@
-include mise_a_feu/scripts/*.py
+recursive-include mise_a_feu *.py
 include README.md requirements.pip
