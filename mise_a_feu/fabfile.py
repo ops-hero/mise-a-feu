@@ -20,6 +20,16 @@ def version():
     """
     print get_version()
 
+
+@task
+def show_config():
+    """
+    Dummp settings.
+    """
+    for key in sorted(env.iterkeys()):
+        print "%s: %s" % (key, env[key])
+
+
 @task
 def update_updater(updater_path=None):
     '''
