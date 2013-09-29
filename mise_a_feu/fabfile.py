@@ -9,6 +9,7 @@ from lib.stack_updater import StackUpdater
 from lib.utils import str2bool, get_config, run_notifications, log_deployment
 from scripts.update_stack import get_version
 
+
 # monkey patch this to load yaml
 fabric.main.load_settings = get_config
 
@@ -44,6 +45,7 @@ def update_updater(updater_path=None):
     sudo("chown root:root %s" % updater_path)
     sudo("chmod 770 %s" % updater_path)
 
+
 @task
 def run_updater(stack, buildhost,
                 manifest=None, updater_path=None, webcallback=None,
@@ -68,9 +70,10 @@ def run_updater(stack, buildhost,
 @parallel
 def deploy_host(stack_version):
     """
-    Do deployment according to config file & stack version
+    Do only deployment according to config file & stack version
     """
     run_updater(stack_version, env["buildhost"])
+
 
 @task
 def post_deploy():
@@ -85,9 +88,13 @@ def post_deploy():
             with settings(warn_only=command["warn_only"] if "warn_only" in command else env.warn_only):
                 run(command["command"])
 
+
 @task
 @runs_once
 def deploy(stack_version):
+    """
+    Deploy to all the hosts and run the post deployment tasks.
+    """
     # LOCK the deploymend with pidfile here, req for paralel execution!
     if os.path.exists(os.path.expanduser(env["pidfile"])):
         abort("Deployment in progress: %s" % env["pidfile"])
