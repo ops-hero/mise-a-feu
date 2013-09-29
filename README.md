@@ -1,6 +1,7 @@
 mise-a-feu
 ===========
 
+[![Build Status](https://travis-ci.org/ops-hero/mise-a-feu.png?branch=master)](https://travis-ci.org/ops-hero/mise-a-feu)
 
 This library is used to deploy the stacks on the host server. This can be used either from the CLI (via Fabric or command) or from a Python code (by including the library).
 
