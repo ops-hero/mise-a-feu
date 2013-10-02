@@ -21,7 +21,7 @@ def get_version():
     return __version__
 
 
-def main(manifest_file, buildhost,
+def main(manifest_file, buildhost, domain=None,
          verbose=False, force_install=False, stack=None, webcallback=None):
     """
     Main logic to update only packages that are installed.
@@ -37,6 +37,7 @@ def main(manifest_file, buildhost,
         installed_version = get_local_version_for(package)
         future_version = get_remote_version_for(buildhost,
                                                 package,
+                                                domain,
                                                 stack=stack)
 
         if force_install or (installed_version != future_version):
@@ -86,14 +87,14 @@ def get_local_version_for(package):
     return version
 
 
-def get_remote_version_for(buildhost, package, stack=None):
+def get_remote_version_for(buildhost, package, domain, stack=None):
     """
     Retrieve remote version from the build server.
     Latest by default or from specific product stack.
     """
     stack = stack if stack else "latest"
-    url = "http://%s/stacks/%s/packages/%s/version" % \
-                                        (buildhost, stack, package)
+    url = "http://%s/domains/%s/stacks/%s/packages/%s/version" % \
+                                        (buildhost, domain, stack, package)
     log("getting version from: %s" % url, log_level="DEBUG")
     version = _read_from_url(url)
     log("version of %s for stack %s is %s" % (package, stack, version))
@@ -176,6 +177,7 @@ if __name__ == '__main__':
     parser.add_argument('--web-callback', action='store', dest='webcallback')
     parser.add_argument('manifests', type=file)
     parser.add_argument('buildhost', help="buildserver domain name to retrieve the data remotely")
+    parser.add_argument('domain', nargs="?", default="default", help='Domain ("default" by default)')
     parser.add_argument('stack', nargs="?", default="latest", help='Stack version (latest version by default)')
     args = parser.parse_args()
 
@@ -186,15 +188,16 @@ if __name__ == '__main__':
              buildhost=args.buildhost,
              verbose=args.verbose,
              force_install=args.force,
+             domain=args.domain,
              stack=args.stack,
              webcallback=args.webcallback)
 
     else:
         # helper functions for tests
         # need to have mock library installed: `pip install mock`
-
         from mock import patch
         from contextlib import nested
+        import platform
         import tempfile
 
         def get_lookup_function(dict_arg):
@@ -207,22 +210,23 @@ if __name__ == '__main__':
                         else:
                             return dict_arg_[key]
                     else:
-                        raise AssertionError("unexpected input %s" % key)
+                        raise KeyError("unexpected input %s" % key)
             return _f
 
         # run tests
 
         output = get_local_version_for("python")
-        assert output in ['2.7.3-0ubuntu2', '2.7.3-0ubuntu2.2'], "local version '%s' does not match requirements" % output
+        if not platform.platform().startswith("Darwin"):
+            assert output in ['2.7.3-0ubuntu2', '2.7.3-0ubuntu2.2'], "local version '%s' does not match requirements" % output
 
         # run other tests
 
-        with patch('__main__._read_from_url', get_lookup_function({"http://buildhost/stacks/latest/packages/test-package/version": "1.0.0"})):
-            output = get_remote_version_for("buildhost", "test-package")
+        with patch('__main__._read_from_url', get_lookup_function({"http://buildhost/domains/default/stacks/latest/packages/test-package/version": "1.0.0"})):
+            output = get_remote_version_for("buildhost", "test-package", "default")
         assert output=='1.0.0', "can not retrieve remote version of a package %s" % output
 
-        with patch('__main__._read_from_url', get_lookup_function({"http://buildhost/stacks/123/packages/test-package/version": "1.0.1"})):
-            output = get_remote_version_for("buildhost", "test-package", stack="123")
+        with patch('__main__._read_from_url', get_lookup_function({"http://buildhost/domains/default/stacks/123/packages/test-package/version": "1.0.1"})):
+            output = get_remote_version_for("buildhost", "test-package", "default", stack="123")
         assert output=='1.0.1', "can not retrieve remote version of a package for a specific stack %s" % output
 
         # run other tests
@@ -322,15 +326,15 @@ if __name__ == '__main__':
                         get_lookup_function({'dpkg -r pkg1 pkg2': 0,
                                         'dpkg --force-overwrite -i /tmp/pkg1-1.0.0-amd64.deb /tmp/pkg2-2.0.0-amd64.deb': 0,})),
                 patch('__main__._read_from_url', 
-                        get_lookup_function({'http://buildhost/stacks/latest/packages/pkg1/version': "1.0.0",
-                                        'http://buildhost/stacks/latest/packages/pkg2/version': "2.0.0",
+                        get_lookup_function({'http://buildhost/domains/default/stacks/latest/packages/pkg1/version': "1.0.0",
+                                        'http://buildhost/domains/default/stacks/latest/packages/pkg2/version': "2.0.0",
                                         "http://buildhost/packages/pkg1/version/1.0.0/file": "pkg1-1.0.0-amd64.deb",
                                         "http://buildhost/packages/pkg2/version/2.0.0/file": "pkg2-2.0.0-amd64.deb",})),
                 patch('__main__._retrieve_from_url', 
                         get_lookup_function({"http://buildhost/debs/pkg1-1.0.0-amd64.deb": {"/tmp/pkg1-1.0.0-amd64.deb": 10},
                                             "http://buildhost/debs/pkg2-2.0.0-amd64.deb": {"/tmp/pkg2-2.0.0-amd64.deb": 10}})),
             ):
-            output = main('toto.manifest', "buildhost")
+            output = main('toto.manifest', "buildhost", "default")
         assert output=={'pkg1': 'pkg1-1.0.0-amd64.deb', 'pkg2': 'pkg2-2.0.0-amd64.deb'}, "integration test failed %s" % output
 
         with nested(
@@ -342,13 +346,13 @@ if __name__ == '__main__':
                         get_lookup_function({'dpkg -r pkg2': 0,
                                         'dpkg --force-overwrite -i /tmp/pkg2-2.0.0-amd64.deb': 0,})),
                 patch('__main__._read_from_url', 
-                        get_lookup_function({'http://buildhost/stacks/latest/packages/pkg1/version': "1.0.0",
-                                        'http://buildhost/stacks/latest/packages/pkg2/version': "2.0.0",
+                        get_lookup_function({'http://buildhost/domains/default/stacks/latest/packages/pkg1/version': "1.0.0",
+                                        'http://buildhost/domains/default/stacks/latest/packages/pkg2/version': "2.0.0",
                                         "http://buildhost/packages/pkg2/version/2.0.0/file": "pkg2-2.0.0-amd64.deb",})),
                 patch('__main__._retrieve_from_url', 
                         get_lookup_function({"http://buildhost/debs/pkg2-2.0.0-amd64.deb": {"/tmp/pkg2-2.0.0-amd64.deb": 10}})),
             ):
-            output = main('toto.manifest', "buildhost")
+            output = main('toto.manifest', "buildhost", "default")
         assert output=={'pkg2': 'pkg2-2.0.0-amd64.deb'}, "integration test failed when 1 out 2 pkg need to be updated %s" % output
 
         with nested(
@@ -357,10 +361,10 @@ if __name__ == '__main__':
                 patch('__main__.get_local_version_for', 
                         get_lookup_function({'pkg1': "1.0.0", 'pkg2': "2.0.0"})),
                 patch('__main__._read_from_url', 
-                        get_lookup_function({'http://buildhost/stacks/latest/packages/pkg1/version': "1.0.0",
-                                        'http://buildhost/stacks/latest/packages/pkg2/version': "2.0.0",})),
+                        get_lookup_function({'http://buildhost/domains/default/stacks/latest/packages/pkg1/version': "1.0.0",
+                                        'http://buildhost/domains/default/stacks/latest/packages/pkg2/version': "2.0.0",})),
             ):
-            output = main('toto.manifest', "buildhost")
+            output = main('toto.manifest', "buildhost", "default")
         assert output=={}, "integration test when no update needed failed %s" % output
 
         with nested(
@@ -372,13 +376,13 @@ if __name__ == '__main__':
                         get_lookup_function({'dpkg -r pkg1 pkg2': 0,
                                         'dpkg --force-overwrite -i /tmp/pkg1-1.0.0-amd64.deb /tmp/pkg2-2.0.0-amd64.deb': 0,})),
                 patch('__main__._read_from_url', 
-                        get_lookup_function({'http://buildhost/stacks/latest/packages/pkg1/version': "1.0.0",
-                                        'http://buildhost/stacks/latest/packages/pkg2/version': "2.0.0",
+                        get_lookup_function({'http://buildhost/domains/default/stacks/latest/packages/pkg1/version': "1.0.0",
+                                        'http://buildhost/domains/default/stacks/latest/packages/pkg2/version': "2.0.0",
                                         "http://buildhost/packages/pkg1/version/1.0.0/file": "pkg1-1.0.0-amd64.deb",
                                         "http://buildhost/packages/pkg2/version/2.0.0/file": "pkg2-2.0.0-amd64.deb",})),
                 patch('__main__._retrieve_from_url', 
                         get_lookup_function({"http://buildhost/debs/pkg1-1.0.0-amd64.deb": {"/tmp/pkg1-1.0.0-amd64.deb": 10},
                                             "http://buildhost/debs/pkg2-2.0.0-amd64.deb": {"/tmp/pkg2-2.0.0-amd64.deb": 10}})),
             ):
-            output = main('toto.manifest', "buildhost", force_install=True)
+            output = main('toto.manifest', "buildhost", "default", force_install=True)
         assert output=={'pkg1': 'pkg1-1.0.0-amd64.deb', 'pkg2': 'pkg2-2.0.0-amd64.deb'}, "failed when forced install %s" % output
