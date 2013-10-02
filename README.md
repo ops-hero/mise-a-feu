@@ -17,7 +17,7 @@ Either via Fabric, once the working copy is checked out:
     $ ...
     $ fab -H host1.example.com update_updater
     $ ...
-    $ fab -H host1.example.com run_updater:1.2.3,buildhost,webcallback=http://host:8080/stacks/update
+    $ fab -H host1.example.com run_updater:default,1.2.3,buildhost,webcallback=http://host:8080/stacks/update
     $ ...
 
 After installing the package, a binary `mise-a-feu` is also available. It exposes directly the fabric file:
@@ -26,7 +26,7 @@ After installing the package, a binary `mise-a-feu` is also available. It expose
     $ ...
     $ mise-a-feu -c config_file deploy:stack_version
     $ ...
-    $ mise-a-feu -c examples/example_config.yml deploy:0.0.1
+    $ mise-a-feu -c examples/example_config.yml deploy:main,0.0.1
     $ ...
 
 
@@ -34,7 +34,8 @@ Or in another python application, after installing the package as well:
 
     from mise_a_feu import StackUpdater
 
-    updater = StackUpdater(stack="1.2.3",
+    updater = StackUpdater(domain="default",
+                           stack="1.2.3",
                            buildhost="buildhost",
                            manifest="/etc/manifest.data",
                            webcallback="http://host:8080/stacks/update",
