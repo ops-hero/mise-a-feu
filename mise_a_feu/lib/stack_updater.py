@@ -27,9 +27,10 @@ class StackUpdater(object):
             with settings(host_string=host):
                 updater.run()
     """
-    def __init__(self, stack, buildhost,
+    def __init__(self, domain, stack, buildhost,
                  manifest=None, updater_path=None, webcallback=None,
                  force_update=False, verbose=False):
+        self.domain = domain
         self.stack = stack
         self.buildhost = buildhost
         self.manifest = manifest or "/root/tools/packages/manifests"
@@ -39,12 +40,13 @@ class StackUpdater(object):
         self.verbose = verbose
 
     def run(self):
-        command = '%s %s%s%s%s %s %s' % (self.updater_path,
+        command = '%s %s%s%s%s %s %s %s' % (self.updater_path,
             '' if not self.verbose else '--verbose ',
             '' if not self.force_update else '--force ',
             '' if not self.webcallback \
                                 else '--web-callback %s ' % self.webcallback,
             self.manifest,
             self.buildhost,
+            self.domain,
             self.stack)
         return sudo(command)

@@ -47,7 +47,7 @@ def update_updater(updater_path=None):
 
 
 @task
-def run_updater(stack, buildhost,
+def run_updater(domain, stack, buildhost,
                 manifest=None, updater_path=None, webcallback=None,
                 verbose=True, force=False):
     '''
@@ -56,7 +56,8 @@ def run_updater(stack, buildhost,
     verbose = str2bool(verbose)
     force = str2bool(force)
 
-    updater = StackUpdater(stack,
+    updater = StackUpdater(domain,
+                           stack,
                            buildhost,
                            manifest=manifest,
                            updater_path=updater_path,
@@ -68,11 +69,11 @@ def run_updater(stack, buildhost,
 
 @task
 @parallel
-def deploy_host(stack_version):
+def deploy_host(domain, stack_version):
     """
     Do only deployment according to config file & stack version
     """
-    run_updater(stack_version, env["buildhost"])
+    run_updater(domain, stack_version, env["buildhost"])
 
 
 @task
@@ -91,7 +92,7 @@ def post_deploy():
 
 @task
 @runs_once
-def deploy(stack_version):
+def deploy(domain, stack_version):
     """
     Deploy to all the hosts and run the post deployment tasks.
     """
@@ -103,7 +104,7 @@ def deploy(stack_version):
 
     run_notifications(env.notifications["start"], stack_version)
     # TODO? with settings(warn_only=True):
-    execute(deploy_host, stack_version)
+    execute(deploy_host, domain, stack_version)
     execute(post_deploy)
     log_deployment(stack_version)
     # unlock here
